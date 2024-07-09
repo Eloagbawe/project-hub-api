@@ -16,7 +16,7 @@ export function up(knex) {
     table.uuid('id').primary().defaultTo(knex.raw('(UUID())'));
     table.uuid('manager_id').notNullable();
     table.string('title').notNullable();
-    table.string('description').nullable();
+    table.string('description', 1000).defaultTo('');
     table.foreign('manager_id').references('id').inTable('users').onUpdate('CASCADE').onDelete('CASCADE');
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.timestamp('updated_at').defaultTo(knex.raw('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'));
@@ -24,7 +24,7 @@ export function up(knex) {
   .createTable('tasks', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('(UUID())'));
     table.string('title').notNullable();
-    table.string('description').nullable();
+    table.string('description', 1000).defaultTo('');
     table.uuid('user_id').notNullable();
     table.uuid('project_id').notNullable();
     table.string('status').notNullable();
