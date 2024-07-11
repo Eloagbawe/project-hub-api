@@ -25,7 +25,7 @@ export function up(knex) {
     table.uuid('id').primary().defaultTo(knex.raw('(UUID())'));
     table.string('title').notNullable();
     table.string('description', 1000).defaultTo('');
-    table.uuid('user_id').notNullable();
+    table.uuid('user_id').nullable().defaultTo(null);
     table.uuid('project_id').notNullable();
     table.string('status').notNullable();
     table.foreign('user_id').references('id').inTable('users').onUpdate('CASCADE').onDelete('CASCADE');
