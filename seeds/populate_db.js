@@ -20,14 +20,17 @@ async function addUsersData(knex) {
   }
 
   await knex("users").insert(usersWithHashedPasswords);
-};
+}
 
 async function addProjectsData(knex, users) {
   for (let i = 0; i < projectsData.length; i++) {
     const randomIndex = Math.floor(Math.random() * users.length);
     const randomUserId = users[randomIndex].id;
 
-    await knex("projects").insert({ ...projectsData[i], manager_id: randomUserId });
+    await knex("projects").insert({
+      ...projectsData[i],
+      manager_id: randomUserId,
+    });
 
     await knex("user_projects").insert({
       id: uuidv4(),
@@ -36,22 +39,28 @@ async function addProjectsData(knex, users) {
       role: "manager",
     });
   }
-};
+}
 
-async function addTasksData(knex, projects, users) {
-  for (let i = 0; i < tasksData.length; i++) {
-    const randomIndex = Math.floor(Math.random() * users.length);
-    const randomUserId = users[randomIndex].id;
-    const randomIndex2 = Math.floor(Math.random() * projects.length);
-    const randomProjectId = projects[randomIndex2].id;
+async function addTasksData(knex, userProjects) {
+  for (let i = 0, j = 0; i < userProjects.length; i++, j++) {
+    const user_id = userProjects[i].user_id;
+    const project_id = userProjects[i].project_id;
 
-    await knex("tasks").insert({
-      ...tasksData[i],
-      user_id: randomUserId,
-      project_id: randomProjectId,
-    });
+    if (j < tasksData.length) {
+      await knex("tasks").insert({
+        ...tasksData[j++],
+        user_id: user_id,
+        project_id: project_id,
+      });
+
+      await knex("tasks").insert({
+        ...tasksData[j],
+        user_id: user_id,
+        project_id: project_id,
+      });
+    }
   }
-};
+}
 
 export async function seed(knex) {
   // Deletes ALL existing entries
@@ -66,7 +75,11 @@ export async function seed(knex) {
 
   await addProjectsData(knex, users);
 
-  const projects = await knex("projects").select("id");
+  const user_projects = await knex("user_projects").select(
+    "id",
+    "user_id",
+    "project_id"
+  );
 
-  await addTasksData(knex, projects, users);
+  await addTasksData(knex, user_projects);
 }
