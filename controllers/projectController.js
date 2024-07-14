@@ -8,8 +8,9 @@ const projectListWithTeam = async (user_id) => {
   const output = await knex("projects")
     .join("user_projects", "projects.id", "user_projects.project_id")
     .join("users", "user_projects.user_id", "users.id")
-    .leftJoin("user_projects as up2", "projects.id", "up2.project_id")
-    .leftJoin("users as u2", "up2.user_id", "u2.id")
+    .join('users as manager', 'projects.manager_id', 'manager.id')
+    .leftJoin("user_projects as user_projects2", "projects.id", "user_projects2.project_id")
+    .leftJoin("users as team_member", "user_projects2.user_id", "team_member.id")
     .where("users.id", `${user_id}`)
     .groupBy("projects.id")
     .select(
@@ -17,15 +18,19 @@ const projectListWithTeam = async (user_id) => {
       "projects.title",
       "projects.description",
       "projects.updated_at",
-      "projects.manager_id",
+      // "projects.manager_id",
+      "manager.id as manager_id",
+      "manager.first_name as manager_first_name",
+      "manager.last_name as manager_last_name",
+      "manager.email as manager_email",
       knex.raw(`GROUP_CONCAT(
         DISTINCT JSON_OBJECT(
-          'id', u2.id,
-          'email', u2.email,
-          'first_name', u2.first_name,
-          'last_name', u2.last_name,
-          'role', up2.role
-        ) ORDER BY u2.last_name ASC SEPARATOR ','
+          'id', team_member.id,
+          'email', team_member.email,
+          'first_name', team_member.first_name,
+          'last_name', team_member.last_name,
+          'role', user_projects2.role
+        ) ORDER BY team_member.last_name ASC SEPARATOR ','
       ) AS team`)
     )
     .orderBy("projects.updated_at", "desc");
@@ -253,11 +258,8 @@ export const getProject = async (req, res) => {
         .json({ message: "Logged in user not authorized to view project" });
     }
 
-    // const tasks = await projectTasksOutput(id);
-
     res.status(200).json({
-      ...output,
-      // tasks,
+      ...output
     });
   } catch (err) {
     res.status(500).json({ message: "An error has occurred on the server" });
@@ -468,7 +470,6 @@ export const addProjectTask = async (req, res) => {
 
     res.status(201).json({ message: "Task created successfully", task });
   } catch (err) {
-    console.log(err);
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 };
@@ -544,7 +545,6 @@ export const updateProjectTask = async (req, res) => {
       res.status(200).json({ message: "Task updated successfully", task });
     }
   } catch (err) {
-    console.log(err);
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 };
@@ -580,7 +580,6 @@ export const deleteProjectTask = async (req, res) => {
       res.status(204).json({ message: "Task deleted successfully" });
     }
   } catch (err) {
-    console.log(err);
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 };
