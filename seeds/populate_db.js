@@ -24,41 +24,32 @@ async function addUsersData(knex) {
 
 async function addProjectsData(knex, users) {
   for (let i = 0; i < projectsData.length; i++) {
-    const randomIndex = Math.floor(Math.random() * users.length);
-    const randomUserId = users[randomIndex].id;
 
     await knex("projects").insert({
       ...projectsData[i],
-      manager_id: randomUserId,
+      manager_id: users[i].id,
     });
 
     await knex("user_projects").insert({
       id: uuidv4(),
       project_id: projectsData[i].id,
-      user_id: randomUserId,
+      user_id: users[i].id,
       role: "manager",
     });
   }
 }
 
 async function addTasksData(knex, userProjects) {
-  for (let i = 0, j = 0; i < userProjects.length; i++, j++) {
+  for (let i = 0; i < userProjects.length; i++ ) {
     const user_id = userProjects[i].user_id;
     const project_id = userProjects[i].project_id;
 
-    if (j < tasksData.length) {
-      await knex("tasks").insert({
-        ...tasksData[j++],
-        user_id: user_id,
-        project_id: project_id,
-      });
+    await knex("tasks").insert({
+      ...tasksData[i],
+      user_id: user_id,
+      project_id: project_id,
+    });
 
-      await knex("tasks").insert({
-        ...tasksData[j],
-        user_id: user_id,
-        project_id: project_id,
-      });
-    }
   }
 }
 

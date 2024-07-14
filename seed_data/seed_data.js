@@ -53,8 +53,8 @@ export const usersData = [
   {
     id: uuidv4(),
     first_name: "Emma",
-    last_name: "Jackson",
-    email: "emmajackson@projecthub.com",
+    last_name: "Hart",
+    email: "emmahart@projecthub.com",
     password: "123456"
   }, 
   {
@@ -98,6 +98,31 @@ export const projectsData = [
     id: uuidv4(),
     title: 'TechStream',
     description: 'TechStream is a platform designed to streamline the development and deployment of software applications through continuous integration and delivery pipelines. The project prioritizes efficiency and reliability, enabling faster release cycles and improved software quality.'
+  },
+  {
+    id: uuidv4(),
+    title: 'InnoVision',
+    description: 'InnoVision focuses on developing innovative solutions that leverage cutting-edge technologies to solve complex business challenges. The project emphasizes creativity and forward-thinking approaches to drive progress and efficiency.'
+  },
+  {
+    id: uuidv4(),
+    title: 'CyberGuard',
+    description: 'CyberGuard develops comprehensive cybersecurity solutions to protect critical infrastructure and sensitive data. The project focuses on proactive threat detection, risk management, and incident response strategies.'
+  },
+  {
+    id: uuidv4(),
+    title: 'EdgeNet',
+    description: 'EdgeNet is dedicated to building edge computing solutions that bring computational power closer to data sources. The project focuses on reducing latency, enhancing security, and improving the performance of IoT and real-time applications.'
+  },
+  {
+    id: uuidv4(),
+    title: 'Vertex',
+    description: 'Vertex aims to provide top-tier solutions for data analytics, visualization, and business intelligence. The project leverages big data and advanced algorithms to deliver actionable insights and drive strategic decisions.'
+  },
+  {
+    id: uuidv4(),
+    title: 'OptiFlow',
+    description: 'OptiFlow is dedicated to optimizing business workflows through intelligent automation and process improvement. The project targets increased efficiency and reduced operational costs by streamlining complex processes.'
   }
 ]
 
