@@ -8,9 +8,17 @@ const projectListWithTeam = async (user_id) => {
   const output = await knex("projects")
     .join("user_projects", "projects.id", "user_projects.project_id")
     .join("users", "user_projects.user_id", "users.id")
-    .join('users as manager', 'projects.manager_id', 'manager.id')
-    .leftJoin("user_projects as user_projects2", "projects.id", "user_projects2.project_id")
-    .leftJoin("users as team_member", "user_projects2.user_id", "team_member.id")
+    .join("users as manager", "projects.manager_id", "manager.id")
+    .leftJoin(
+      "user_projects as user_projects2",
+      "projects.id",
+      "user_projects2.project_id"
+    )
+    .leftJoin(
+      "users as team_member",
+      "user_projects2.user_id",
+      "team_member.id"
+    )
     .where("users.id", `${user_id}`)
     .groupBy("projects.id")
     .select(
@@ -187,7 +195,6 @@ export const addProject = async (req, res) => {
     });
     projectAdded = true;
   } catch (err) {
-    console.log(err);
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 
@@ -195,24 +202,28 @@ export const addProject = async (req, res) => {
 
   try {
     if (projectAdded) {
-      const uniqueIds = [...new Set(team)];
-      const filteredList = uniqueIds.filter((val) => val !== req.user.id);
+      if (!team || team.length === 0) {
+        teamMembersAdded = true;
+      } else {
+        const uniqueIds = [...new Set(team)];
+        const filteredList = uniqueIds.filter((val) => val !== req.user.id);
 
-      let teamList = [];
+        let teamList = [];
 
-      if (team.length > 0) {
-        teamList = filteredList.map((val) => {
-          return {
-            id: uuidv4(),
-            user_id: val,
-            project_id: newProject.id,
-            role: "member",
-          };
-        });
+        if (team.length > 0) {
+          teamList = filteredList.map((val) => {
+            return {
+              id: uuidv4(),
+              user_id: val,
+              project_id: newProject.id,
+              role: "member",
+            };
+          });
 
-        const result = await knex("user_projects").insert(teamList);
-        if (result) {
-          teamMembersAdded = true;
+          const result = await knex("user_projects").insert(teamList);
+          if (result) {
+            teamMembersAdded = true;
+          }
         }
       }
     }
@@ -258,7 +269,7 @@ export const getProject = async (req, res) => {
     }
 
     res.status(200).json({
-      ...output
+      ...output,
     });
   } catch (err) {
     res.status(500).json({ message: "An error has occurred on the server" });
@@ -285,19 +296,21 @@ export const updateProject = async (req, res) => {
     let newTeamMembers = [];
 
     const user_projects = await knex("user_projects")
-      .select("user_id")
+      .select("user_id", "role")
       .where({ project_id: id });
 
     if (user_projects.length > 0) {
-      const teamMembers = user_projects.map((item) => item.user_id);
+      const isUserManager = user_projects.find(
+        (val) => val.user_id === req.user.id && val.role === "manager"
+      );
 
-      const isUserMember = teamMembers.find((val) => val === req.user.id);
-
-      if (!isUserMember) {
+      if (!isUserManager) {
         return res
           .status(401)
           .json({ message: "Logged in user not authorized to update project" });
       }
+
+      const teamMembers = user_projects.map((item) => item.user_id);
 
       members = teamMembers;
       newTeamMembers = team.filter((x) => !teamMembers.includes(x));
@@ -343,6 +356,65 @@ export const updateProject = async (req, res) => {
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 };
+
+export const removeTeamMember = async (req, res) => {
+  const { projectId, userId } = req.params;
+
+  if (!projectId || !userId) {
+    return res.status(400).json({message: 'Please provide a project id and a user id'});
+  }
+
+  try {
+    const project =  await knex("projects").where({ id: projectId }).select('id', 'manager_id').first();
+
+    if (!project) {
+      return res.status(404).json({message: 'Project not found'});
+    }
+
+    if (project.manager_id !== req.user.id) {
+      return res.status(401).json({ message: 'Logged in user not authorized to remove team member from project'});
+    }
+
+    if (userId === project.manager_id) {
+      return res.status(400).json({ message: 'Manager cannot be removed from project team'});
+    }
+    const numDeleted = await knex("user_projects").where({ project_id: projectId, user_id: userId}).del();
+
+    if (numDeleted === 0) {
+      return res.status(400).json({message: 'User is not a project member'} )
+    } else {
+      await knex('tasks').where({ project_id: projectId, user_id: userId }).update({ user_id: null});
+      res.status(200).json({message: 'User removed successfully'})
+    }
+    
+  } catch (err) {
+    res.status(500).json({ message: "An error has occurred on the server" });
+  }
+}
+
+export const deleteProject = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const project =  await knex("projects").where({ id }).select('id', 'manager_id').first();
+
+    if (!project) {
+      return res.status(404).json({message: 'Project not found'});
+    }
+
+    if (project.manager_id !== req.user.id) {
+      return res.status(401).json({ message: 'Logged in user not authorized to delete project'});
+    }
+
+    await knex("projects").where({ id }).del();
+
+    res.status(204).json({ message: 'Project deleted successfully' })
+
+  } catch (err) {
+    res.status(500).json({ message: "An error has occurred on the server" });
+  }
+
+}
 
 export const getProjectTasks = async (req, res) => {
   const { id } = req.params;
@@ -392,7 +464,7 @@ export const getProjectTeam = async (req, res) => {
 
     if (!isUserMember) {
       return res.status(401).json({
-        message: "Logged in user not authorized to view project tasks",
+        message: "Logged in user not authorized to view project team",
       });
     }
 
@@ -571,9 +643,9 @@ export const deleteProjectTask = async (req, res) => {
       });
     }
 
-    const numUpdated = await knex("tasks").where({ id: taskId }).del();
+    const numDeleted = await knex("tasks").where({ id: taskId }).del();
 
-    if (numUpdated === 0) {
+    if (numDeleted === 0) {
       return res.status(404).json({ message: "No task with that id exists" });
     } else {
       res.status(204).json({ message: "Task deleted successfully" });
