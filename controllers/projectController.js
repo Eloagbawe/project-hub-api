@@ -18,7 +18,6 @@ const projectListWithTeam = async (user_id) => {
       "projects.title",
       "projects.description",
       "projects.updated_at",
-      // "projects.manager_id",
       "manager.id as manager_id",
       "manager.first_name as manager_first_name",
       "manager.last_name as manager_last_name",
