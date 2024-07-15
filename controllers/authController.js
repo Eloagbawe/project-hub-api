@@ -97,15 +97,14 @@ export const signup = async (req, res) => {
     };
     await knex("users").insert(newUserInput);
 
-    const newUserDetails = await knex("users")
-      .select("id", "first_name", "last_name")
-      .where({ id: newUserInput.id })
-      .first();
-
     res.status(201).json({
       message: "Sign up successful",
-      user: newUserDetails,
-      token: generateToken(newUserDetails.id),
+      user: {
+        id: newUserInput.id,
+        first_name: newUserInput.first_name,
+        last_name: newUserInput.last_name
+      },
+      token: generateToken(newUserInput.id),
     });
   } catch (err) {
     res.status(500).json({ message: "An error has occurred on the server" });
