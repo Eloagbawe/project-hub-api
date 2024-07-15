@@ -1,10 +1,10 @@
 ## Project Hub Api
 
 **Installation Instructions**
-- Clone the project from github
-- Run npm install to install dependencies
+- Clone the project from github: git clone https://github.com/Eloagbawe/project-hub-api.git
+- Run npm install to install dependencies: npm install
 - Create your database (mysql)
-- Create a .env file and add all the env variables specified in .env.example
+- Create a .env file at the root of the folder and add all the env variables specified in .env.example
 - Run migrations: npm run migrate
 - Run seeds: npm run seed
 - Run app: npm run dev
