@@ -162,7 +162,6 @@ export const getProjects = async (req, res) => {
     const result = await projectListWithTeam(req.user.id);
     res.status(200).json(result);
   } catch (err) {
-    console.log(err);
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 };
@@ -341,7 +340,6 @@ export const updateProject = async (req, res) => {
           .json({ message: "Logged in user not authorized to update project" });
       }
     } else {
-      console.log(3);
       return res
         .status(404)
         .json({ message: "No project with this id exists" });
