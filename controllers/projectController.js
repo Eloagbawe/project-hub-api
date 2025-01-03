@@ -63,6 +63,10 @@ const projectOutput = async (project_id) => {
       "projects.description",
       "projects.updated_at",
       "projects.manager_id",
+      "projects.to_do_positions",
+      "projects.in_progress_positions",
+      "projects.in_review_positions",
+      "projects.done_positions",
       knex.raw(`GROUP_CONCAT(
       DISTINCT JSON_OBJECT(
         'id', u2.id,
@@ -182,6 +186,10 @@ export const addProject = async (req, res) => {
       title,
       description,
       manager_id: req.user.id,
+      to_do_positions: JSON.stringify([]),
+      in_progress_positions: JSON.stringify([]),
+      in_review_positions: JSON.stringify([]),
+      done_positions: JSON.stringify([])
     };
 
     await knex("projects").insert(newProject);
@@ -438,8 +446,32 @@ export const getProjectTasks = async (req, res) => {
 
     const tasks = await projectTasksOutput(id);
 
-    res.status(200).json({ project_id: project.id, tasks });
+    const positions = {
+      todo: project.to_do_positions,
+      inProgress: project.in_progress_positions,
+      inReview: project.in_review_positions,
+      done: project.done_positions
+    }
+
+    const orderedTasks = {
+      todo: [],
+      inProgress: [],
+      inReview: [],
+      done: []
+    }
+
+    for (let p in positions) {
+      const taskIdsForStatus = positions[p];
+
+      orderedTasks[p] = taskIdsForStatus
+        .map(taskId => tasks.find(task => task.id === taskId)) 
+    }
+
+    res.status(200).json({ project_id: project.id, tasks: orderedTasks
+  
+  });
   } catch (err) {
+    console.log(err)
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 };
@@ -535,6 +567,15 @@ export const addProjectTask = async (req, res) => {
 
     await knex("tasks").insert(newTask);
 
+    const taskStatusKey = newTask.status.replace(/ /g, "_");
+    const taskOrderList = [...project[`${taskStatusKey}_positions`]];
+
+    taskOrderList.push(newTask.id);
+
+    await knex("projects").where({ id }).update({
+      [`${taskStatusKey}_positions`]: JSON.stringify(taskOrderList)
+    })
+
     const task = await taskOutput(newTask.id);
 
     res.status(201).json({ message: "Task created successfully", task });
@@ -583,10 +624,12 @@ export const updateProjectTask = async (req, res) => {
       }
     }
 
+    const updatedStatus = status?.dest?.toLowerCase();
+
     if (
-      status &&
+      updatedStatus &&
       !["to do", "in progress", "in review", "done"].includes(
-        status.toLowerCase()
+        updatedStatus
       )
     ) {
       return res.status(400).json({
@@ -598,7 +641,7 @@ export const updateProjectTask = async (req, res) => {
     const taskDetails = {
       title,
       description,
-      status: status.toLowerCase(),
+      status: updatedStatus,
       user_id,
     };
 
@@ -608,11 +651,52 @@ export const updateProjectTask = async (req, res) => {
 
     if (numUpdated === 0) {
       return res.status(404).json({ message: "No task with that id exists" });
-    } else {
-      const task = await taskOutput(taskId);
-
-      res.status(200).json({ message: "Task updated successfully", task });
     }
+
+    const srcKey = status.src.replace(/ /g, "_");
+    const destKey = status.dest.replace(/ /g, "_")
+
+    if ((status.src !== status.dest) && !status.pos) {
+      const srcTasks = [...project[`${srcKey}_positions`]];
+      const destTasks = [...project[`${destKey}_positions`]];
+
+      const updatedSrcTasks = srcTasks.filter((t) => t !== taskId);
+      destTasks.push(taskId)
+
+      await knex("projects").where({ id: projectId }).update({ 
+        [`${srcKey}_positions`]: JSON.stringify(updatedSrcTasks),
+        [`${destKey}_positions`]: JSON.stringify(destTasks)
+      });
+    }
+
+    else if ((status.src === status.dest) && (status.pos.src !== status.pos.dest)) {
+      const srcTasks = [...project[`${srcKey}_positions`]];
+
+      srcTasks.splice(status.pos.src, 1);
+      srcTasks.splice(status.pos.dest, 0, taskId);
+
+      await knex("projects").where({ id: projectId }).update({ 
+        [`${srcKey}_positions`]: JSON.stringify(srcTasks)
+      });
+    }
+
+    else if (status.src !== status.dest){
+      const srcTasks = [...project[`${srcKey}_positions`]];
+      const destTasks = [...project[`${destKey}_positions`]];
+
+      srcTasks.splice(status.pos.src, 1);
+      destTasks.splice(status.pos.dest, 0, taskId);
+
+      await knex("projects").where({ id: projectId }).update({ 
+        [`${srcKey}_positions`]: JSON.stringify(srcTasks),
+        [`${destKey}_positions`]: JSON.stringify(destTasks)
+      });
+    }
+
+    const task = await taskOutput(taskId);
+
+    res.status(200).json({ message: "Task updated successfully", task });
+
   } catch (err) {
     res.status(500).json({ message: "An error has occurred on the server" });
   }
@@ -620,6 +704,11 @@ export const updateProjectTask = async (req, res) => {
 
 export const deleteProjectTask = async (req, res) => {
   const { projectId, taskId } = req.params;
+  const { status } = req.query;
+
+  if (!status) {
+    res.status(400).json({ message: "Please provide the task status in the query" })
+  }
 
   try {
     const project = await projectOutput(projectId);
@@ -645,10 +734,20 @@ export const deleteProjectTask = async (req, res) => {
 
     if (numDeleted === 0) {
       return res.status(404).json({ message: "No task with that id exists" });
-    } else {
-      res.status(204).json({ message: "Task deleted successfully" });
     }
+
+    const statusKey = status.replace(/ /g, "_");
+
+    await knex("projects").where({ id: projectId }).update({
+      [`${statusKey}_positions`]: JSON.stringify(
+        project[`${statusKey}_positions`].filter((id) => id !== taskId)
+      )
+    })
+
+    res.status(204).json({ message: "Task deleted successfully" });
+
   } catch (err) {
+    console.log(err)
     res.status(500).json({ message: "An error has occurred on the server" });
   }
 };
